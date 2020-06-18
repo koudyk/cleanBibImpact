@@ -22,7 +22,7 @@ from matplotlib import pyplot as plt
 from matplotlib_venn import venn3_circles, venn3_unweighted
 from matplotlib_venn import _common, _venn3
 
-datafile = '../data/cleanBib_citations.csv'
+datafile = '../../data/cleanBib_citations.csv'
 df = pd.read_csv(datafile)
 df.head()
 # -
@@ -30,7 +30,6 @@ df.head()
 list(df.columns)
 
 
-# +
 def venn_of_df(df):
     subsets = []
     for col in df.columns:
@@ -44,23 +43,24 @@ def venn_of_df(df):
     centers, radii = _venn3.solve_venn3_circles(areas)
     ax = plt.gca()
     _common.prepare_venn_axes(ax, centers, radii)
-    
 
-# -
 
 cols = ['paper_citation', 'code_citation', 'diversity_statement']   
 venn_of_df(df[cols])
 plt.title('Counts of whether papers contain \n' +\
           'a diversity statement, a citation of the paper, \n' +\
           'and/or a citation of the preprint', fontsize=14)
-plt.savefig('../reports/figures/venn_diagram_content.png')
+plt.tight_layout()
+plt.savefig('../../reports/figures/venn_diagram_content.png')
 
+plt.figure()
 cols = ['paper_opencitations',
  'paper_googlescholar',
  'code_googlescholar']
 venn_of_df(df[cols])
 plt.title('Where did we find the papers? \n', fontsize=14)
-plt.savefig('../reports/figures/venn_diagram_locatoin.png')
+plt.tight_layout()
+plt.savefig('../../reports/figures/venn_diagram_sources.png')
 
 n_preprints = df['preprint'].sum()
 n_articles = len(df) - df['preprint'].sum()
