@@ -36,7 +36,7 @@ import re
 #
 # Dworkin, J. D., Linn, K. A., Teich, E. G., Zurn, P., Shinohara, R. T., & Bassett, D. S. (2020). The extent and drivers of gender imbalance in neuroscience reference lists. arXiv preprint arXiv:2001.01002.
 
-datafile = '../../data/cleanBib_citations.csv'
+datafile = '../../data/citing_papers__manually_gathered.csv'
 df = pd.read_csv(datafile)
 print('Data columns: ', list(df.columns))
 df.head(2)
@@ -159,7 +159,7 @@ for d in df['percentages']:
     if len(d) > 0:
         for key in lists_percents.keys():
             lists_percents[key].append(d[key])
-            
+
 
 # -
 
