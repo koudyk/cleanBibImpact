@@ -45,13 +45,13 @@ df.head(2)
 # ## Looking at features of papers that might help us find them automatically
 # Here, we look at whether papers contain a diversity statement, and whether they cite the code and/or the original paper. This way, we can get an idea of how to make an automatic search that would find all relevant papers. 
 
-def venn_of_df(df):
+def venn_of_df(df, labels):
     subsets = []
     for col in df.columns:
         s = set(df.index[df[col] > 0].tolist())
         subsets.append(s)
 
-    labels = [label.replace('_', ' ').capitalize() for label in df.columns]
+    #labels = [label.replace('_', ' ').capitalize() for label in df.columns]
 
     v = venn3_unweighted(subsets, set_labels=labels)
     areas = (1, 1, 1, 1, 1, 1, 1)
@@ -64,9 +64,9 @@ def venn_of_df(df):
 matplotlib.rc('font', **{'size': 14})
 
 cols = ['paper_citation', 'code_citation', 'diversity_statement']
-venn_of_df(df[cols])
-plt.title('Papers containing a diversity statement, \n' +\
-          'a citation of the paper and/or a citation of the code', fontsize=20)
+labels = [label.replace('_', ' ').capitalize() for label in cols]
+venn_of_df(df[cols], labels=labels)
+plt.title('Counts of papers found that contain...', fontsize=20)
 plt.tight_layout()
 plt.savefig('../../reports/figures/venn_diagram_content.png')
 # -
@@ -84,7 +84,10 @@ matplotlib.rc('font', **{'size': 14})
 cols = ['paper_opencitations',
  'paper_googlescholar',
  'code_googlescholar']
-venn_of_df(df[cols])
+labels = ['opencitations.net\n(paper)',
+          'Google Scholar\n(paper)',
+          'Google Scholar\n(code)']
+venn_of_df(df[cols], labels=labels)
 plt.title('Where did we find the papers? \n', fontsize=20)
 plt.tight_layout()
 plt.savefig('../../reports/figures/venn_diagram_sources.png')
@@ -222,6 +225,3 @@ plt.hlines(y=0, xmin=0, xmax=5)
 
 plt.tight_layout()
 plt.savefig('../../reports/figures/violinplot_percentage_diffs_from_benchmarks.png')
-# -
-
-
