@@ -7,10 +7,13 @@
 import requests
 from habanero import Crossref
 import numpy as np
+import pandas as pd
 np.random.seed(seed=93287583)
 
+GENDER_API_KEY = open('gender_api_key.txt', 'r').read().strip()
 
-def get_citations(doi):
+
+def git_citing_dois(doi):
     '''
     Get the dois of papers citing a given doi using opencitations.net
 
@@ -55,29 +58,49 @@ def names_from_xref(doi):
     return first_author, last_author
 
 
-# get dois for papers citing the original paper and the code,
-print('\nLooking for DOIS for the citing papers\n')
-code_doi = '10.5281/zenodo.3672109'
-paper_doi = '10.1101/2020.01.03.894378'
-dois_citing_paper = get_citations(paper_doi)}
+def name_to_gender(name, api_key=GENDER_API_KEY):
+    url = f'https://gender-api.com/get?key={api_key}&name={name}'
+    response = requests.get(url).json()
+    gender = response['gender']
+    accuracy = response['accuracy']
+    return gender, accuracy
 
-# get random DOIs
-# TODO check they're not in the list of citing dois
-# TODO check that the results are papers
-# TODO make recent time range
-# TODO limit to neuroscience
-# print('\nLooking for DOIS for random papers\n')
-# cr = Crossref()
-# n_samples = 10
-# n_random_dois = len(dois['paper']) * n_samples
-# random_dois = cr.random_dois(n_random_dois)
 
-# get the first and last names for dois
-print('Looking for author names for the citing papsers')
-citing_first_authors = []
-citing_last_authors = []
-for n, doi in enumerate(doi_list):
-    print('\tDOI %d / %d\r' %(n, len(doi_list) - 1), end='')
-    citing_first_authors.append(names_from_xref(doi)[0])
-    citing_last_authors.append(names_from_xref(doi)[1])
+def get_data(df):
+    '''
+    For each doi in a dataframe containing a column called 'doi',
+    get the names, genders, and gender accuracies of the first and last
+    authors
+    '''
+    for n, doi in enumerate(df['doi']):
+        print('\tDOI %d / %d\r' % (n, len(citing_papers)), end='')
+        fa_name, la_name = names_from_xref(doi)
+        fa_gender, fa_accuracy = name_to_gender(fa_name)
+        la_gender, la_accuracy = name_to_gender(la_name)
+
+        df.at[n, 'first_author_name'] = fa_name
+        df.at[n, 'first_author_gender'] = fa_gender
+        df.at[n, 'first_author_gender_accuracy'] = fa_accuracy
+
+        df.at[n, 'last_author_name'] = la_name
+        df.at[n, 'last_author_gender'] = la_gender
+        df.at[n, 'last_author_gender_accuracy'] = la_accuracy
     print('\n')
+    return df
+
+
+# get the data for the citing papers
+citing_papers = pd.DataFrame()
+
+print('\nLooking for DOIS for the citing papers\n')
+# code_doi = '10.5281/zenodo.3672109'
+# NOTE - use the code_doi when there are enough papers citing it
+paper_doi = '10.1101/2020.01.03.894378'
+citing_papers['doi'] = git_citing_dois(paper_doi)
+
+print('\nLooking for author names and genders for the citing papers\n')
+citing_papers = get_data(citing_papers)
+
+datafile = '../../data/citing_papers.csv'
+print(f'\nSaving data to {datafile}\n')
+citing_papers.to_csv(datafile)
