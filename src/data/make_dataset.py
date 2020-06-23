@@ -70,3 +70,18 @@ dois = {'paper': get_citations(paper_doi)}
 # n_samples = 10
 # n_random_dois = len(dois['paper']) * n_samples
 # dois['random'] = cr.random_dois(n_random_dois)
+
+# get the first and last names for dois
+print('Looking for author names')
+first_authors = {}
+last_authors = {}
+for doi_type, doi_list in dois.items():
+    print('\nDOI type: ', doi_type)
+    first_authors[doi_type] = []
+    last_authors[doi_type] = []
+    for n, doi in enumerate(doi_list):
+        print('\tDOI %d / %d\r' %(n, len(doi_list) - 1), end='')
+        first_author, last_author = names_from_xref(doi)
+        first_authors[doi_type].append(first_author)
+        last_authors[doi_type].append(last_author)
+    print('\n')
