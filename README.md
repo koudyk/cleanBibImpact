@@ -1,12 +1,12 @@
 # cleanBibImpact
 
 ## Vision
-Gender imbalance in research is found even in our citations. Our goal is to assess the 'impact' of the [cleanBib](https://github.com/dalejn/cleanBib) tool, which can be used to create a 'Diversity Statement' that describes the gender balance of authors that are cited in a research paper. Specifically, we want to find papers that cite the [code](https://doi.org/10.5281/zenodo.3672109)/[paper](https://doi.org/10.1038/s41593-020-0658-y)/[preprint](https://doi.org/10.1101/2020.01.03.894378) associated with cleanBib, and see whether those citing papers have better gender balance in their reference lists, compared to papers that do not. 
+Gender imbalance is a big problem in academic research, and it is even reflected in our citation behavior. Our goal is to assess the 'impact' of the [cleanBib](https://github.com/dalejn/cleanBib) tool, which was created to make researchers more aware of this problem. This tool can be used to assess the gender balance of authors in a reference list. Specifically, we want to find papers that cite the clearnBib [code](https://doi.org/10.5281/zenodo.3672109)/[paper](https://doi.org/10.1038/s41593-020-0658-y)/[preprint](https://doi.org/10.1101/2020.01.03.894378), and see whether those citing papers have better gender balance in their reference lists than papers that do not. 
 
 The cleanBib project and the associated paper are fairly new, so there aren't many papers that cite it yet. This project was started at the [2020 OHBM Brainhack Hackathon](https://ohbm.github.io/hackathon2020/), and we hope to continue it at future [Brainhacks](https://brainhack.org/) when more papers have used cleanBib. 
 
 ## A note on 'gender'
-Unfortunately, we're making some poor assumptions in our use of the 'gender' in this project. We use the [Gender API](https://gender-api.com/) to guess the gender of a person based on their first name. Some of our limitations include:
+Unfortunately, we're making some poor assumptions in our use of 'gender' in this project. We use the [Gender API](https://gender-api.com/) to guess the gender of a person based on their first name. Some of our limitations include:
 - The gender guesses made by the tool may not reflect the experienced gender of the individual, 
 - This tool is biased in that it's better at recognizing 'western' names, and 
 - This tool has only 3 gender categories ("female", "male", and "unknown"), and so it does not reflect the full experienced gender spectrum. 
