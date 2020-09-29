@@ -15,10 +15,10 @@ Despite these limitations, we believe this project is worthwhile for assessing a
 ## Milestones
 This is a work in progress. Here are some steps we'll need to complete to reach our goal: 
 - [x] **0. Manual inspection**. As a first step, we did some manual data searching and visualization. We manually searched for papers that cite the code, paper, and/or preprint associated with cleanBib, and then compared their citations' gender diversity to the benchmarks reported in the [paper](https://doi.org/10.1038/s41593-020-0658-y). You can see our results in this [notebook](https://github.com/koudyk/cleanBibImpact/blob/master/src/visualization/visualize_manual_data.ipynb).
-- [x] **1. List citing papers**. List papers that cite the code, paper, and/or preprint associated with cleanBib, i.e., the **citing papers**.
-- [ ] **2. List citing papers' citations**. List of each citing papers' citations.
-- [ ] **3. Guess genders**. Guess the genders of the first and last authors of the  citing papers' citations.
-- [ ] **4. Classify citations** Using the guessed genders, categorize each citation for each citing paper into one of the following classes:
+- [x] **1. List citing papers**, that is, papers that cite the code, paper, and/or preprint associated with cleanBib.
+- [ ] **2. List citing papers' citations**.
+- [ ] **3. Guess genders** of the first and last authors of the  citing papers' citations.
+- [ ] **4. Classify citations** into one of the following classes, using the gender guesses from the previous step:
   - Man & Man (i.e., man first author & man last author)
   - Woman & Man
   - Man & Woman
