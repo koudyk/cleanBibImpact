@@ -37,3 +37,5 @@ If you're interested, please see our [Contributing](https://github.com/koudyk/cl
 2. Create a virtual python environment: `python3 -m venv venv`
 3. Activate the environment: `source venv/bin/activate`
 4. Install the requirements: `xargs -L 1 pip install < requirements.txt`
+
+To use the code that interacts with the [Gender API](https://gender-api.com/), you need to sign up for a free account and get an API key, then save it in a file called `src/data/gender_api_key.txt`. 
