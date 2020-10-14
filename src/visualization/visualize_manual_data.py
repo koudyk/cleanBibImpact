@@ -7,7 +7,7 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.5.0
+#       jupytext_version: 1.3.0
 #   kernelspec:
 #     display_name: Python 3
 #     language: python
@@ -61,12 +61,13 @@ def venn_of_df(df, labels):
 
 
 # +
+plt.figure(figsize=(9,5))
 matplotlib.rc('font', **{'size': 14})
 
 cols = ['paper_citation', 'code_citation', 'diversity_statement']
 labels = [label.replace('_', ' ').capitalize() for label in cols]
 venn_of_df(df[cols], labels=labels)
-plt.title('Counts of papers found that contain...', fontsize=20)
+plt.title('Counts of citing papers found that contain...', fontsize=20)
 plt.tight_layout()
 plt.savefig('../../reports/figures/venn_diagram_content.png')
 # -
@@ -78,17 +79,17 @@ plt.savefig('../../reports/figures/venn_diagram_content.png')
 # The search for the code revealed 0 DOIs, so "Code opencitations" is not included in this diagram.
 
 # +
-plt.figure()
+plt.figure(figsize=(9,5))
 matplotlib.rc('font', **{'size': 14})
 
 cols = ['paper_opencitations',
  'paper_googlescholar',
  'code_googlescholar']
-labels = ['opencitations.net\n(paper)',
-          'Google Scholar\n(paper)',
-          'Google Scholar\n(code)']
+labels = ['opencitations.net\n(searching for the paper)',
+          'Google Scholar\n(searching for the paper)',
+          'Google Scholar\n(searching for the code)']
 venn_of_df(df[cols], labels=labels)
-plt.title('Where did we find the papers? \n', fontsize=20)
+plt.title('Where did we find citing papers? \n', fontsize=20)
 plt.tight_layout()
 plt.savefig('../../reports/figures/venn_diagram_sources.png')
 # -
@@ -149,26 +150,28 @@ for n, text in enumerate(df['ds_text']):
     df.loc[n, ('percentages')] = [d]
 
 
+df
+
+
 # To prepare for making the figure, we list the percents reported in each diversity statement (not including the relative percentages or the 'non-binary' and 'other' categories, which weren't reported in each statement. 
 
-# +
-lists_percents = {'mm': [],
+def get_percentages_list(df):
+    lists_percents = {'mm': [],
                   'wm': [],
                   'mw': [],
                   'ww': [],
-}
+    }
+    for d in df['percentages']:
+        if len(d) > 0:
+            for key in lists_percents.keys():
+                lists_percents[key].append(d[key])
+    return lists_percents
 
-for d in df['percentages']:
-    if len(d) > 0:
-        for key in lists_percents.keys():
-            lists_percents[key].append(d[key])
-
-
-# -
 
 # ## Visualize the actual percentages
 
 # +
+lists_percents = get_percentages_list(df)
 data_for_visualization = list(lists_percents.values())
 
 matplotlib.rc('font', **{'size': 14})
@@ -183,32 +186,37 @@ plt.title('Percentages reported in papers\n' +\
           f'with diversity statements (n=%d)' %df['diversity_statement'].sum())
 plt.tight_layout()
 plt.savefig('../../reports/figures/violinplot_percentages.png')
+
+
 # -
 
 # ## Calculate and visualize the percentages relative to the benchmarks
 
+def get_percentage_differences_lists(df):
+
+    expected_percentages = {'mm': 58.4,
+                            'wm': 25.5,
+                            'mw': 9.4,
+                            'ww': 6.7,
+    }
+
+    lists_percent_diffs = {'mm': [],
+                           'wm': [],
+                           'mw': [],
+                           'ww': [],
+    }
+
+    for d in df['percentages']:
+        if len(d) > 0:
+            for key in lists_percent_diffs.keys():
+                diff = d[key] - expected_percentages[key]
+                lists_percent_diffs[key].append(diff)
+    return lists_percent_diffs
+
+
+
 # +
-expected_percentages = {'mm': 58.4,
-                        'wm': 25.5,
-                        'mw': 9.4,
-                        'ww': 6.7,
-}
-
-lists_percent_diffs = {'mm': [],
-                       'wm': [],
-                       'mw': [],
-                       'ww': [],
-}
-
-for d in df['percentages']:
-    if len(d) > 0:
-        for key in lists_percent_diffs.keys():
-            diff = d[key] - expected_percentages[key]
-            lists_percent_diffs[key].append(diff)
-
-
-
-# +
+lists_percent_diffs = get_percentage_differences_lists(df)
 data_for_visualization = list(lists_percent_diffs.values())
 
 matplotlib.rc('font', **{'size': 14})
@@ -225,3 +233,58 @@ plt.hlines(y=0, xmin=0, xmax=5)
 
 plt.tight_layout()
 plt.savefig('../../reports/figures/violinplot_percentage_diffs_from_benchmarks.png')
+# -
+
+# ## Relative percentages, without self-citations
+# i.e., excluding papers authored by Danielle Bassett 
+
+# +
+# select papers not authored by Danielle Bassett
+# (wosc stands for 'without self-citations')
+df_wosc = df[df['bassett_author'] == 0]
+
+lists_percent_diffs_wosc = get_percentage_differences_lists(df_wosc)
+data_for_visualization_wosc = list(lists_percent_diffs_wosc.values())
+
+matplotlib.rc('font', **{'size': 14})
+
+fig, axes = plt.subplots(figsize=(6,5))
+axes.violinplot(dataset=data_for_visualization_wosc)
+axes.set_ylabel('% of citations, relative to benchmarks')
+axes.set_xticks(range(len(lists_percent_diffs_wosc) + 1))
+ticks = ['', 'man\nman', 'man\nwoman', 'woman\nman', 'woman\nwoman']
+axes.set_xticklabels(ticks)
+plt.title('Relative percentages in papers\n' +\
+          'with diversity statements (n=%d),\n'%df_wosc['diversity_statement'].sum()  +\
+          'excluding papers by D. Bassett')
+plt.hlines(y=0, xmin=0, xmax=5)
+
+plt.tight_layout()
+plt.savefig('../../reports/figures/violinplot_percentage_diffs_from_benchmarks_wo_self-citations.png')
+# -
+
+# ## Relative percentages, with only self-citations
+
+# +
+# select papers authored by Danielle Bassett
+# (sc stands for 'self-citations')
+df_sc = df[df['bassett_author'] == 1]
+
+lists_percent_diffs_sc = get_percentage_differences_lists(df_sc)
+data_for_visualization_sc = list(lists_percent_diffs_sc.values())
+
+matplotlib.rc('font', **{'size': 14})
+
+fig, axes = plt.subplots(figsize=(6,5))
+axes.violinplot(dataset=data_for_visualization_sc)
+axes.set_ylabel('% of citations, relative to benchmarks')
+axes.set_xticks(range(len(lists_percent_diffs_sc) + 1))
+ticks = ['', 'man\nman', 'man\nwoman', 'woman\nman', 'woman\nwoman']
+axes.set_xticklabels(ticks)
+plt.title('Relative percentages in papers\n' +\
+          'with diversity statements (n=%d),\n'%df_sc['diversity_statement'].sum()  +\
+          'only including papers by D. Bassett')
+plt.hlines(y=0, xmin=0, xmax=5)
+
+plt.tight_layout()
+plt.savefig('../../reports/figures/violinplot_percentage_diffs_from_benchmarks_only_self-citations.png')
