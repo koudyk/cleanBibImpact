@@ -55,7 +55,7 @@ df.head(2)
 # +
 print(f"{len(df)} papers were found")
 
-n_papers_w_div_statement = len(df[df["diversity_statement"] != "0"])
+n_papers_w_div_statement = len(df[df.mm >0])
 print("%d papers contain a diversity statement" % n_papers_w_div_statement)
 
 # n_preprints = df["preprint"].sum()
@@ -75,7 +75,7 @@ print(
 # Select data
 
 cols = ["mm", "wm", "mw", "ww"]
-df_with_ds = df.loc[df["diversity_statement"] != "0", cols]
+df_with_ds = df.loc[df["mm"] > 0, cols]
 df_self_cite = df_with_ds.loc[df["bassett_author"] == 1, cols]
 df_not_self_cite = df_with_ds.loc[df["bassett_author"] == 0, cols]
 
