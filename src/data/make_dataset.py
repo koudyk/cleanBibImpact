@@ -163,6 +163,9 @@ def name_to_gender(name, api_key=None, name_dict={}):
             # save the updated names_dict
             with open(NAME_DICT_PATH, 'w') as name_dict_file:
                 json.dump(name_dict, name_dict_file, indent=2)
+        # if still unknown and there is a dash in the name, try on the first part of the name
+        if gender == "unknown" and "-" in name:
+            return name_to_gender(name.split("-")[0], api_key, dict)
     return gender, accuracy
 
 
@@ -254,6 +257,6 @@ if __name__ == "__main__":
     print(f"\nSaving data to {DATAFILE_PATH}\n")
     papers.to_csv(DATAFILE_PATH)
 
-    # save the potentially updated names_dic
+    # save the potentially updated name_dict
     with open(NAME_DICT_PATH, 'w') as name_dict_file:
         json.dump(name_dict, name_dict_file, indent=2)
