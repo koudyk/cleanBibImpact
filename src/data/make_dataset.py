@@ -1,17 +1,27 @@
 import requests
+import os
+import json
 from habanero import Crossref
 import numpy as np
 import pandas as pd
-import IPython
-
-np.random.seed(seed=93287583)
-
-GENDER_API_KEY = open("gender_api_key.txt", "r").read().strip()
+import gender_guesser.detector as gender_detecor
 
 
-def get_citing_dois(cited_doi):
+GENDER_API_KEY_PATH = "gender_api_key.txt"
+NAME_DICT_PATH = "name_dict.json"
+DATAFILE_PATH = "../../data/citing_papers.csv"
+
+# list the cited dois. we're interested in which papers cite these dois
+CITED_DOIS = {
+    "paper": "10.1038/s41593-020-0658-y",
+    "preprint": "10.1101/2020.01.03.894378",
+    "code": "10.5281/zenodo.3672109",
+}
+
+
+def get_dois(doi, citing=True):
     """
-    Get the dois of papers citing a given doi using opencitations.net
+    Get the dois of papers citing or cited by a given doi using opencitations.net
 
     Silvio Peroni, David Shotton (2020). OpenCitations, an infrastructure
     organization for open scholarship. Quantitative Science Studies, 1(1):
@@ -20,21 +30,25 @@ def get_citing_dois(cited_doi):
 
     Inputs
     ------
-    cited_doi : string
-        The DOI of the paper whose citing DOIs you want to list.
+    doi : string
+        The DOI of the paper whose citing DOIs or references you want to list.
+    citing : bool,
+        Wether to get the DOIs citing the given DOI or cited by the given DOI (default: True).
 
     Outputs
     -------
     citing_dois : list of strings
         List of DOIs of papers that cite the given DOI.
     """
-    url = f"https://opencitations.net/index/coci/api/v1/citations/{cited_doi}"
+    type = "citations" if citing else "references"
+    key = "citing" if citing else "cited"
+    url = f"https://opencitations.net/index/coci/api/v1/{type}/{doi}"
     items = requests.get(url).json()
-    citing_dois = []
+    found_dois = []
     if items:  # if opencitations.net lists citing items
         for item in items:
-            citing_dois.append(item["citing"])
-    return citing_dois
+            found_dois.append(item[key])
+    return found_dois
 
 
 def get_name_from_author_dict(author_dict):
@@ -89,30 +103,37 @@ def names_from_xref(doi):
     works = cr.works(
         query=title, select=["DOI", "author"], limit=1, filter={"doi": doi}
     )
+    first_author = ""
+    last_author = ""
     if works["message"]["total-results"] > 0:
         item = works["message"]["items"][0]
         if "author" in item.keys():
             first_author = get_name_from_author_dict(item["author"][0])
             last_author = get_name_from_author_dict(item["author"][-1])
-        else:
-            first_author = ""
-            last_author = ""
     return first_author, last_author
 
 
-def name_to_gender(name, api_key=GENDER_API_KEY):
-    """
-    This function uses the gender API (https://gender-api.com/) to guess the gender of the given name.
+def name_to_gender(name, api_key=None, name_dict={}):
+    f"""
+    This function uses the gender-guesser pip package (https://pypi.org/project/gender-guesser/)
+    and optionally the gender API (https://gender-api.com/) or a dictionary to guess the gender of
+    the given name.
 
-    Note that a major limitation of this code and the original paper is that this is a guess at the gender of a person based only on a first name, and it does not reflect the chosen gender of the author. Further, there are greater limitations if the name is not a traditionally western name. Last, the gender API has limitations in that it doesn't include all types of experienced genders.
+    Note that a major limitation of this code and the original paper is that this is a guess at the
+    gender of a person based only on a first name, and it does not reflect the chosen gender of the
+    author. Further, there are greater limitations if the name is not a traditionally western name.
+    Last, the gender API has limitations in that it doesn't include all types of experienced genders.
 
     Inputs
     ------
     name : string
         The first name whose gender you want to guess.
-
     api_key : string
-        The API key for the gender API. You can sign up for a free account and get an API key on the gender-api.com website.
+        The API key for the gender API. You can sign up for a free account and get an API key on
+        the gender-api.com website. Optional.
+    name_dict : dict
+        Dictionary containing gender guesses and accuracy, the dictionary is used if the gender-guesser
+        package returns 'unknown'. It is updated if a gender-api request is made.
 
     Outputs
     -------
@@ -121,74 +142,118 @@ def name_to_gender(name, api_key=GENDER_API_KEY):
 
     accuracy : int
         The accuracy of the gender guess, in percent.
-
     """
-    url = f"https://gender-api.com/get?key={api_key}&name={name}"
-    response = requests.get(url).json()
-    gender = response["gender"]
-    accuracy = response["accuracy"]
+    # If the name is just an initial, return unknown
+    if len(name) < 2:
+        return "unknown", 0
+
+    detector = gender_detecor.Detector(case_sensitive=False)
+    gender = detector.get_gender(name)
+    accuracy = None
+    if gender == "unknown":
+        if name in name_dict.keys():
+            gender = name_dict[name]["gender"]
+            accuracy = name_dict[name]["accuracy"]
+        elif api_key:
+            url = f"https://gender-api.com/get?key={api_key}&name={name}"
+            response = requests.get(url).json()
+            gender = response["gender"]
+            accuracy = response["accuracy"]
+            name_dict[name] = {"gender": gender, "accuracy": accuracy}
+            # save the updated names_dict
+            with open(NAME_DICT_PATH, 'w') as name_dict_file:
+                json.dump(name_dict, name_dict_file, indent=2)
     return gender, accuracy
 
 
-def get_data(cited_doi):
+def get_data(doi, df=None, api_key=None, name_dict={}):
     """
-    For each doi in a dataframe containing a column called 'doi',get the names, genders, and gender accuracies of the first and last authors.
+    For a given doi, get the names, genders, and gender accuracies of the first and last authors.
 
     Inputs
     ------
-    cited_doi: string
-        The DOI of the paper whose citing DOIs you want to list.
+    doi: string
+        The DOI of the paper whose authers' names and gender you want to get.
+    df: pandas DataFrame
+        DataFrame containing the data of already found DOIs, to avoid having to generate the
+        data again. Optional.
+    api_key: string
+        The API key for the gender API. You can sign up for a free account and get an API key on
+        the gender-api.com website. Optional.
+    name_dict: dict
+        Dictionary containing name gender data. Optional.
 
     Outputs
     -------
-    df : pandas DataFrame
-        DataFrame with additional columns for the first and last authors' names, guessed genders, and guess accuracies.
+    data : dict or pandas.series
+        dict or pandas.series with fields for first and last authors' names, guessed genders,
+        and guess accuracies.
     """
-
-    # get the data for the citing papers
-    df = pd.DataFrame()
-
-    print("\nLooking for DOIS for the citing papers\n")
-    df["doi"] = get_citing_dois(cited_doi=cited_doi)
-
-    print("\nLooking for author names and genders for the citing papers\n")
-    if len(df) > 0:  # if there were any citations found
-        for n, citing_doi in enumerate(df["doi"]):
-            print("\tDOI %d / %d\r" % (n + 1, len(df)), end="")
-            fa_name, la_name = names_from_xref(citing_doi)
-            fa_gender, fa_accuracy = name_to_gender(fa_name)
-            la_gender, la_accuracy = name_to_gender(la_name)
-
-            df.at[n, "first_author_name"] = fa_name
-            df.at[n, "first_author_gender"] = fa_gender
-            df.at[n, "first_author_gender_accuracy"] = fa_accuracy
-
-            df.at[n, "last_author_name"] = la_name
-            df.at[n, "last_author_gender"] = la_gender
-            df.at[n, "last_author_gender_accuracy"] = la_accuracy
-        print("\n")
+    if df and doi in df["doi"].values:
+        data = df[df["doi"]==doi].iloc[0]
+        data = data[["doi","first_author_name","first_author_gender","first_author_gender_accuracy",
+                     "last_author_name","last_author_gender","last_author_gender_accuracy"]]
     else:
-        print("\nNo citations found :( \n")
-    return df
+        fa_name, la_name = names_from_xref(doi)
+        fa_gender, fa_accuracy = name_to_gender(fa_name, api_key, name_dict)
+        la_gender, la_accuracy = name_to_gender(la_name, api_key, name_dict)
+        data = {"doi": doi,
+                    "first_author_name": fa_name, "first_author_gender": fa_gender,
+                    "first_author_gender_accuracy": fa_accuracy,
+                    "last_author_name": la_name, "last_author_gender": la_gender,
+                    "last_author_gender_accuracy": la_accuracy}
+    return data
 
 
-# list the cited dois. we're interested in which papers cite these dois
-cited_dois = {
-    "paper": "10.1038/s41593-020-0658-y",
-    "preprint": "10.1101/2020.01.03.894378",
-    "code": "10.5281/zenodo.3672109",
-}
+if __name__ == "__main__":
 
-# for each cited doi, get the citing dois and their name/gender data
-citing_papers = pd.DataFrame()
-for cited_entity, doi in cited_dois.items():
-    print("\n--------------\nLooking for citations of the ", cited_entity)
-    df = get_data(cited_doi=doi)
-    df["cited_entity"] = cited_entity
-    df["cited_doi"] = doi
-    citing_papers = citing_papers.append(df)
+    # look for the gender_api_key and name_dict
+    if os.path.isfile(GENDER_API_KEY_PATH):
+        api_key = open(GENDER_API_KEY_PATH, "r").read().strip()
+    else:
+        api_key = None
+        print(f"{GENDER_API_KEY_PATH} not found, gender-api won't be used.")
 
-# save the data as a .csv file
-datafile = "../../data/citing_papers.csv"
-print(f"\nSaving data to {datafile}\n")
-citing_papers.to_csv(datafile)
+    if os.path.isfile(NAME_DICT_PATH):
+        with open(NAME_DICT_PATH, 'r') as name_dict_file:
+            name_dict = json.load(name_dict_file)
+    else:
+        name_dict = {}
+
+    # for each cited doi, get the citing dois and their name/gender data
+    papers = pd.DataFrame(columns=["doi"])
+    for cited_entity, doi in CITED_DOIS.items():
+        print("\n--------------\nLooking for citations of the ", cited_entity)
+        citing_dois = get_dois(doi, citing=True)
+        if not citing_dois:
+            print("    No citations found :( \n")
+        for n, citing_doi in enumerate(citing_dois):
+            print("\tDOI %d / %d\r" % (n + 1, len(citing_dois)), end="")
+            new_row = get_data(citing_doi, papers, api_key, name_dict)
+            new_row["cited_entity"] = cited_entity
+            new_row["cited_doi"] = doi
+            papers = papers.append(new_row, ignore_index=True)
+
+    # for each citing doi, get the dois of the refs and their name/gender data
+    print("\n--------------\nLooking in the referrences of the citing papers")
+    citing_dois = papers.pivot(index="doi", columns="cited_entity", values="cited_entity")
+    for n, citing_doi_row in enumerate(citing_dois.itertuples()):
+        print("\tDOI %d / %d\r" % (n + 1, len(citing_dois)), end="")
+        ref_dois = get_dois(citing_doi_row.Index, citing=False)
+        for k, ref_doi in enumerate(ref_dois):
+            print("\tDOI %d / %d, reference %d / %d    \r" % (n + 1, len(citing_dois), k+1, len(ref_dois)), end="")
+            if ref_doi not in CITED_DOIS.values():
+                new_row = get_data(ref_doi, papers, api_key, name_dict)
+                citing_entities = [entity for entity in CITED_DOIS.keys()
+                                   if isinstance(getattr(citing_doi_row, entity, None), str)]
+                new_row["citing_entity"] = " ".join(["paper citing cleanBib"]+citing_entities)
+                new_row["citing_doi"] = citing_doi_row.Index
+                papers = papers.append(new_row, ignore_index=True)
+
+    # save the data as a .csv file
+    print(f"\nSaving data to {DATAFILE_PATH}\n")
+    papers.to_csv(DATAFILE_PATH)
+
+    # save the potentially updated names_dic
+    with open(NAME_DICT_PATH, 'w') as name_dict_file:
+        json.dump(name_dict, name_dict_file, indent=2)
