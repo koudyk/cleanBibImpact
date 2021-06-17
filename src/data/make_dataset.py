@@ -192,7 +192,7 @@ def get_data(doi, df=None, api_key=None, name_dict={}):
         dict or pandas.series with fields for first and last authors' names, guessed genders,
         and guess accuracies.
     """
-    if df and doi in df["doi"].values:
+    if df is not None and doi in df["doi"].values:
         data = df[df["doi"]==doi].iloc[0]
         data = data[["doi","first_author_name","first_author_gender","first_author_gender_accuracy",
                      "last_author_name","last_author_gender","last_author_gender_accuracy"]]
