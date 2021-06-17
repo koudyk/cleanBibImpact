@@ -62,10 +62,10 @@ print("%d papers contain a diversity statement" % n_papers_w_div_statement)
 # n_articles = len(df) - df["preprint"].sum()
 # print(f"{n_preprints} are preprints, {n_articles} journal articles")
 
-n_by_bassett = df["bassett_author"].sum()
-n_not_by_bassett = len(df) - n_by_bassett
+n_self_citations = df["bassett_author"].sum()
+n_not_self_citations = len(df) - n_self_citations
 print(
-    f"{n_by_bassett} include Danielle Bassett as an author, {n_not_by_bassett} do not"
+    f"{n_self_citations} include Danielle Bassett as an author, {n_not_self_citations} do not"
 )
 # -
 
