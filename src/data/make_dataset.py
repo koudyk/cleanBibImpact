@@ -6,7 +6,16 @@ import IPython
 
 np.random.seed(seed=93287583)
 
-GENDER_API_KEY = open("gender_api_key.txt", "r").read().strip()
+GENDER_API_KEY_PATH = "gender_api_key.txt"
+NAME_DICT_PATH = "name_dict.json"
+DATAFILE_PATH = "../../data/citing_papers_test.csv"
+
+# list the cited dois. we're interested in which papers cite these dois
+CITED_DOIS = {
+    "paper": "10.1038/s41593-020-0658-y",
+    "preprint": "10.1101/2020.01.03.894378",
+    "code": "10.5281/zenodo.3672109",
+}
 
 
 def get_citing_dois(cited_doi):
@@ -123,10 +132,35 @@ def name_to_gender(name, api_key=GENDER_API_KEY):
         The accuracy of the gender guess, in percent.
 
     """
-    url = f"https://gender-api.com/get?key={api_key}&name={name}"
-    response = requests.get(url).json()
-    gender = response["gender"]
-    accuracy = response["accuracy"]
+    # use the _gender_detector as a global variable to avoid re-generating it each time
+    global _gender_detector
+
+    # If the name is just an initial, return unknown
+    if len(name) < 2:
+        return "unknown", 0
+
+    # create gender-guesser detcetor if it doesn't already exist
+    if not "_gender_detector" in globals():
+        _gender_detector = gender_detecor.Detector(case_sensitive=False)
+
+    gender = _gender_detector.get_gender(name)
+    accuracy = None
+    if gender == "unknown":
+        if name in name_dict.keys():
+            gender = name_dict[name]["gender"]
+            accuracy = name_dict[name]["accuracy"]
+        elif api_key:
+            url = f"https://gender-api.com/get?key={api_key}&name={name}"
+            response = requests.get(url).json()
+            gender = response["gender"]
+            accuracy = response["accuracy"]
+            name_dict[name] = {"gender": gender, "accuracy": accuracy}
+            # save the updated names_dict
+            with open(NAME_DICT_PATH, 'w') as name_dict_file:
+                json.dump(name_dict, name_dict_file, indent=2)
+        # if still unknown and there is a dash in the name, try on the first part of the name
+        if gender == "unknown" and "-" in name:
+            return name_to_gender(name.split("-")[0], api_key, dict)
     return gender, accuracy
 
 
@@ -168,27 +202,43 @@ def get_data(cited_doi):
             df.at[n, "last_author_gender_accuracy"] = la_accuracy
         print("\n")
     else:
-        print("\nNo citations found :( \n")
-    return df
+        name_dict = {}
+        print(f"{NAME_DICT_PATH} not found, creating a new one.")
 
+    # for each cited doi, get the citing dois and their name/gender data
+    papers = pd.DataFrame(columns=["doi"])
+    for cited_entity, doi in CITED_DOIS.items():
+        print("\n--------------\nLooking for citations of the ", cited_entity)
+        citing_dois = get_dois(doi, citing=True)
+        if not citing_dois:
+            print("    No citations found :( \n")
+        for n, citing_doi in enumerate(citing_dois):
+            print("\tDOI %d / %d\r" % (n + 1, len(citing_dois)), end="")
+            new_row = get_data(citing_doi, papers, api_key, name_dict)
+            new_row["cited_entity"] = cited_entity
+            new_row["cited_doi"] = doi
+            papers = papers.append(new_row, ignore_index=True)
 
-# list the cited dois. we're interested in which papers cite these dois
-cited_dois = {
-    "paper": "10.1038/s41593-020-0658-y",
-    "preprint": "10.1101/2020.01.03.894378",
-    "code": "10.5281/zenodo.3672109",
-}
+    # for each citing doi, get the dois of the refs and their name/gender data
+    print("\n--------------\nLooking in the referrences of the citing papers")
+    citing_dois = papers.pivot(index="doi", columns="cited_entity", values="cited_entity")
+    for n, citing_doi_row in enumerate(citing_dois.itertuples()):
+        print("\tDOI %d / %d\r" % (n + 1, len(citing_dois)), end="")
+        ref_dois = get_dois(citing_doi_row.Index, citing=False)
+        for k, ref_doi in enumerate(ref_dois):
+            print("\tDOI %d / %d, reference %d / %d    \r" % (n + 1, len(citing_dois), k+1, len(ref_dois)), end="")
+            if ref_doi not in CITED_DOIS.values():
+                new_row = get_data(ref_doi, papers, api_key, name_dict)
+                citing_entities = [entity for entity in CITED_DOIS.keys()
+                                   if isinstance(getattr(citing_doi_row, entity, None), str)]
+                new_row["citing_entity"] = " ".join(["paper citing cleanBib"]+citing_entities)
+                new_row["citing_doi"] = citing_doi_row.Index
+                papers = papers.append(new_row, ignore_index=True)
 
-# for each cited doi, get the citing dois and their name/gender data
-citing_papers = pd.DataFrame()
-for cited_entity, doi in cited_dois.items():
-    print("\n--------------\nLooking for citations of the ", cited_entity)
-    df = get_data(cited_doi=doi)
-    df["cited_entity"] = cited_entity
-    df["cited_doi"] = doi
-    citing_papers = citing_papers.append(df)
+    # save the data as a .csv file
+    print(f"\nSaving data to {DATAFILE_PATH}\n")
+    papers.to_csv(DATAFILE_PATH)
 
-# save the data as a .csv file
-datafile = "../../data/citing_papers.csv"
-print(f"\nSaving data to {datafile}\n")
-citing_papers.to_csv(datafile)
+    # save the potentially updated name_dict
+    with open(NAME_DICT_PATH, 'w') as name_dict_file:
+        json.dump(name_dict, name_dict_file, indent=2)
