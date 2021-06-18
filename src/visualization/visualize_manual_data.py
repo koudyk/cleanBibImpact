@@ -7,7 +7,7 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.3.0
+#       jupytext_version: 1.11.3
 #   kernelspec:
 #     display_name: Python 3
 #     language: python
@@ -26,8 +26,6 @@
 import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
-from matplotlib_venn import venn3_circles, venn3_unweighted
-from matplotlib_venn import _common, _venn3
 import matplotlib
 import re
 import scipy.stats as st
@@ -43,11 +41,43 @@ from matplotlib.lines import Line2D
 #
 # Dworkin, J. D., Linn, K. A., Teich, E. G., Zurn, P., Shinohara, R. T., & Bassett, D. S. (2020). The extent and drivers of gender imbalance in neuroscience reference lists. arXiv preprint arXiv:2001.01002.
 
-datafile = "../../data/citing_papers__manually_gathered.csv"
-df = pd.read_csv(datafile)
-df[["mm", "wm", "mw", "ww"]] = df[["mm", "wm", "mw", "ww"]].astype(float)
-df.head(2)
+# +
+# datafile = "../../data/citing_papers__manually_gathered.csv"
+# month = 1
+# year = 2021
+# df = pd.read_csv(datafile, header=0)
+# df[["mm", "wm", "mw", "ww"]] = df[["mm", "wm", "mw", "ww"]].astype(float)
+# df.head(2)
 
+
+# +
+year = 2021
+month = 6
+
+# NOTE - before we load the data, we need to go into the csv's
+# and change the column names so they include these columns
+columns = ["title","authors","doi","arxiv","mm","wm","mw","ww","other"]
+
+datafile0 = "../../data/cleanBibImpact_manual_data__2021_06 - Isil.csv"
+datafile1 = "../../data/cleanBibImpact_manual_data__2021_06 - Lea.csv"
+datafile2 = "../../data/cleanBibImpact_manual_data__2021_01 - new_format.csv"
+
+df0 = pd.read_csv(datafile0, header=3)
+df1 = pd.read_csv(datafile1, header=3)
+df2 = pd.read_csv(datafile2, header=3)
+
+df0 = df0[columns]
+df1 = df1[columns]
+df2 = df2[columns]
+
+
+# combine old and new data
+df = df2.append(df1)
+df = df.append(df0)
+df = df.reset_index()
+df[["mm", "wm", "mw", "ww"]] = df[["mm", "wm", "mw", "ww"]].astype(float)
+len(df)
+# -
 
 # ## Notes about the citing papers
 #
@@ -62,11 +92,11 @@ print("%d papers contain a diversity statement" % n_papers_w_div_statement)
 # n_articles = len(df) - df["preprint"].sum()
 # print(f"{n_preprints} are preprints, {n_articles} journal articles")
 
-n_by_bassett = df["bassett_author"].sum()
-n_not_by_bassett = len(df) - n_by_bassett
-print(
-    f"{n_by_bassett} include Danielle Bassett as an author, {n_not_by_bassett} do not"
-)
+# n_by_bassett = df["bassett_author"].sum()
+# n_not_by_bassett = len(df) - n_by_bassett
+# print(
+#     f"{n_by_bassett} include Danielle Bassett as an author, {n_not_by_bassett} do not"
+# )
 # -
 
 # ## Visualize the actual percentages
@@ -76,8 +106,8 @@ print(
 
 cols = ["mm", "wm", "mw", "ww"]
 df_with_ds = df.loc[df["mm"] > 0, cols]
-df_self_cite = df_with_ds.loc[df["bassett_author"] == 1, cols]
-df_not_self_cite = df_with_ds.loc[df["bassett_author"] == 0, cols]
+# df_self_cite = df_with_ds.loc[df["bassett_author"] == 1, cols]
+# df_not_self_cite = df_with_ds.loc[df["bassett_author"] == 0, cols]
 
 # Set plotting parameters
 
@@ -95,44 +125,6 @@ bar_palette = ["midnightblue", "teal", "skyblue", "chocolate"]
 bar_alpha = 0.7
 
 
-# -
-
-# ### Reported diversity
-
-# +
-fig, ax = plt.subplots(figsize=(6, 6))
-
-# plots
-sns.barplot(
-    data=df_with_ds,
-    ci=95,
-    palette=bar_palette,
-    alpha=bar_alpha,
-    errcolor="k",
-    capsize=0.15,
-    edgecolor="k",
-)
-
-# grid
-plt.grid(alpha=0.3)
-ax.hlines(y=0, xmin=-0.5, xmax=3.5)
-ax.set_axisbelow(True)
-
-# labels
-ax.set_ylabel("Citations (% with 95% confidence interval)")
-# ticks = ["man\nman", "man\nwoman", "woman\nman", "woman\nwoman"]
-ticks = ["MM", "WM", "MW", "WW"]
-ax.set_xticklabels(ticks)
-ax.set_xlabel("Cited author gender (first and last)")
-plt.title(
-    "Gendered citations\nreported in papers "
-    + f"with diversity statements, \nup to January 2021 (n=%d)"
-    % n_papers_w_div_statement
-)
-
-# save
-plt.tight_layout()
-plt.savefig("../../reports/figures/reported_diversity.png")
 # -
 
 # ### Reported diversity, with swarm overlayed
@@ -165,8 +157,8 @@ ax.set_xticklabels(ticks)
 ax.set_xlabel("Cited author gender (first and last)")
 plt.title(
     "Gendered citations\nreported in papers "
-    + f"with diversity statements, \nup to January 2021 (n=%d)"
-    % n_papers_w_div_statement
+    + f"with diversity statements, \nup to %d-%02d (n=%d)"
+    % (year, month, n_papers_w_div_statement)
 )
 
 # save
@@ -177,72 +169,72 @@ plt.savefig("../../reports/figures/reported_diversity__with_swarm.png")
 # ### Reported diversity, with self-citations noticeable
 
 # +
-fig, ax = plt.subplots(figsize=(6, 6))
+# fig, ax = plt.subplots(figsize=(6, 6))
 
-# plots
-sns.swarmplot(data=df_self_cite, color=self_cite_color, alpha=self_cite_alpha)
-sns.swarmplot(
-    data=df_not_self_cite, color=not_self_cite_color, alpha=not_self_cite_alpha
-)
-sns.barplot(
-    data=df_with_ds,
-    ci=95,
-    #             palette=bar_palette,
-    color="lightgrey",
-    alpha=1,
-    errcolor="k",
-    capsize=0.15,
-    edgecolor="k",
-)
+# # plots
+# sns.swarmplot(data=df_self_cite, color=self_cite_color, alpha=self_cite_alpha)
+# sns.swarmplot(
+#     data=df_not_self_cite, color=not_self_cite_color, alpha=not_self_cite_alpha
+# )
+# sns.barplot(
+#     data=df_with_ds,
+#     ci=95,
+#     #             palette=bar_palette,
+#     color="lightgrey",
+#     alpha=1,
+#     errcolor="k",
+#     capsize=0.15,
+#     edgecolor="k",
+# )
 
-# grid
-plt.grid(alpha=0.3)
-ax.hlines(y=0, xmin=-0.5, xmax=3.5)
-ax.set_axisbelow(True)
+# # grid
+# plt.grid(alpha=0.3)
+# ax.hlines(y=0, xmin=-0.5, xmax=3.5)
+# ax.set_axisbelow(True)
 
-# legend
-legend_elements = [
-    Line2D(
-        [0],
-        [0],
-        marker="o",
-        color="w",
-        label="Self-citations (n=%d)" % len(df_self_cite),
-        markerfacecolor=self_cite_color,
-        alpha=self_cite_alpha,
-        markersize=5,
-    ),
-    Line2D(
-        [0],
-        [0],
-        marker="o",
-        color="w",
-        label="Not self-citations (n=%d)" % len(df_not_self_cite),
-        markerfacecolor=not_self_cite_color,
-        alpha=not_self_cite_alpha,
-        markersize=5,
-    ),
-]
-leg = plt.legend(handles=legend_elements, loc="upper center")
-leg.get_frame().set_edgecolor("lightgrey")
+# # legend
+# legend_elements = [
+#     Line2D(
+#         [0],
+#         [0],
+#         marker="o",
+#         color="w",
+#         label="Self-citations (n=%d)" % len(df_self_cite),
+#         markerfacecolor=self_cite_color,
+#         alpha=self_cite_alpha,
+#         markersize=5,
+#     ),
+#     Line2D(
+#         [0],
+#         [0],
+#         marker="o",
+#         color="w",
+#         label="Not self-citations (n=%d)" % len(df_not_self_cite),
+#         markerfacecolor=not_self_cite_color,
+#         alpha=not_self_cite_alpha,
+#         markersize=5,
+#     ),
+# ]
+# leg = plt.legend(handles=legend_elements, loc="upper center")
+# leg.get_frame().set_edgecolor("lightgrey")
 
-# labels
-ax.set_ylabel("Citations (% with 95% confidence interval)")
-# ticks = ["man\nman", "man\nwoman", "woman\nman", "woman\nwoman"]
-ticks = ["MM", "WM", "MW", "WW"]
-ax.set_xticklabels(ticks)
-ax.set_xlabel("Cited author gender (first and last)")
-plt.title(
-    "Gendered citations\nreported in papers "
-    + f"with diversity statements, \nup to January 2021 (n=%d)"
-    % n_papers_w_div_statement
-)
+# # labels
+# ax.set_ylabel("Citations (% with 95% confidence interval)")
+# # ticks = ["man\nman", "man\nwoman", "woman\nman", "woman\nwoman"]
+# ticks = ["MM", "WM", "MW", "WW"]
+# ax.set_xticklabels(ticks)
+# ax.set_xlabel("Cited author gender (first and last)")
+# plt.title(
+#     "Gendered citations\nreported in papers "
+#     + f"with diversity statements, \nup to %d-%02d (n=%d)"
+#     % (year, month, n_papers_w_div_statement)
+# )
 
-# save
-plt.tight_layout()
-plt.savefig(
-    "../../reports/figures/reported_diversity__with_self_citation_swarm.png"
-)
+# # save
+# plt.tight_layout()
+# plt.savefig(
+#     "../../reports/figures/reported_diversity__with_self_citation_swarm.png"
+# )
 
 
 # -
@@ -269,48 +261,11 @@ for i_col, column in enumerate(list(df_with_ds.columns)):
 
 
 rel_df_with_ds = df_with_ds[relative_cols]
-rel_df_self_cite = df_with_ds.loc[df["bassett_author"] == 1, relative_cols]
-rel_df_not_self_cite = df_with_ds.loc[df["bassett_author"] == 0, relative_cols]
-
+# rel_df_self_cite = df_with_ds.loc[df["bassett_author"] == 1, relative_cols]
+# rel_df_not_self_cite = df_with_ds.loc[df["bassett_author"] == 0, relative_cols]
 # -
 
 # ### Relative diversity
-
-# +
-fig, ax = plt.subplots(figsize=(6, 6))
-
-# plots
-sns.barplot(
-    data=rel_df_with_ds,
-    ci=95,
-    palette=bar_palette,
-    alpha=bar_alpha,
-    errcolor="k",
-    capsize=0.15,
-    edgecolor="k",
-)
-
-# grid
-plt.grid(alpha=0.3)
-ax.hlines(y=0, xmin=-0.5, xmax=3.5)
-ax.set_axisbelow(True)
-
-# labels
-ax.set_ylabel("Relative citation diversity\n(% with 95% confidence interval)")
-# ticks = ["man\nman", "man\nwoman", "woman\nman", "woman\nwoman"]
-ticks = ["MM", "WM", "MW", "WW"]
-ax.set_xticklabels(ticks)
-ax.set_xlabel("Cited author gender (first and last)")
-plt.title(
-    "Relative proportions of gendered citations\nreported in papers "
-    + f"with diversity statements, \nup to January 2021 (n=%d)"
-    % n_papers_w_div_statement
-)
-
-# save
-plt.tight_layout()
-plt.savefig("../../reports/figures/relative_diversity.png")
-# -
 
 # ### Reported diversity, with swarm overlayed
 
@@ -349,8 +304,8 @@ plt.savefig("../../reports/figures/relative_diversity__with_swarm.png")
 
 plt.title(
     "Relative proportions of gendered citations\nreported in papers "
-    + f"with diversity statements, \nup to January 2021 (n=%d)"
-    % n_papers_w_div_statement
+    + f"with diversity statements, \nup to %d-%02d (n=%d)"
+    % (year, month, n_papers_w_div_statement)
 )
 plt.tight_layout()
 plt.savefig("../../reports/figures/relative_diversity__with_swarm__with_title.png")
@@ -359,76 +314,76 @@ plt.savefig("../../reports/figures/relative_diversity__with_swarm__with_title.pn
 # ### Relative diversity, with self-citations noticeable
 
 # +
-fig, ax = plt.subplots(figsize=(6, 6))
+# fig, ax = plt.subplots(figsize=(6, 6))
 
-# plots
-sns.swarmplot(
-    data=rel_df_self_cite, color=self_cite_color, alpha=self_cite_alpha
-)
-sns.swarmplot(
-    data=rel_df_not_self_cite,
-    color=not_self_cite_color,
-    alpha=not_self_cite_alpha,
-)
-sns.barplot(
-    data=rel_df_with_ds,
-    ci=95,
-    #             palette=bar_palette,
-    color="lightgrey",
-    alpha=1,
-    errcolor="k",
-    capsize=0.15,
-    edgecolor="k",
-)
+# # plots
+# sns.swarmplot(
+#     data=rel_df_self_cite, color=self_cite_color, alpha=self_cite_alpha
+# )
+# sns.swarmplot(
+#     data=rel_df_not_self_cite,
+#     color=not_self_cite_color,
+#     alpha=not_self_cite_alpha,
+# )
+# sns.barplot(
+#     data=rel_df_with_ds,
+#     ci=95,
+#     #             palette=bar_palette,
+#     color="lightgrey",
+#     alpha=1,
+#     errcolor="k",
+#     capsize=0.15,
+#     edgecolor="k",
+# )
 
-# grid
-plt.grid(alpha=0.3)
-ax.hlines(y=0, xmin=-0.5, xmax=3.5)
-ax.set_axisbelow(True)
+# # grid
+# plt.grid(alpha=0.3)
+# ax.hlines(y=0, xmin=-0.5, xmax=3.5)
+# ax.set_axisbelow(True)
 
-# legend
-legend_elements = [
-    Line2D(
-        [0],
-        [0],
-        marker="o",
-        color="w",
-        label="Self-citations (n=%d)" % len(rel_df_self_cite),
-        markerfacecolor=self_cite_color,
-        alpha=self_cite_alpha,
-        markersize=5,
-    ),
-    Line2D(
-        [0],
-        [0],
-        marker="o",
-        color="w",
-        label="Not self-citations (n=%d)" % len(rel_df_not_self_cite),
-        markerfacecolor=not_self_cite_color,
-        alpha=not_self_cite_alpha,
-        markersize=5,
-    ),
-]
-leg = plt.legend(handles=legend_elements, loc="upper center")
-leg.get_frame().set_edgecolor("lightgrey")
+# # legend
+# legend_elements = [
+#     Line2D(
+#         [0],
+#         [0],
+#         marker="o",
+#         color="w",
+#         label="Self-citations (n=%d)" % len(rel_df_self_cite),
+#         markerfacecolor=self_cite_color,
+#         alpha=self_cite_alpha,
+#         markersize=5,
+#     ),
+#     Line2D(
+#         [0],
+#         [0],
+#         marker="o",
+#         color="w",
+#         label="Not self-citations (n=%d)" % len(rel_df_not_self_cite),
+#         markerfacecolor=not_self_cite_color,
+#         alpha=not_self_cite_alpha,
+#         markersize=5,
+#     ),
+# ]
+# leg = plt.legend(handles=legend_elements, loc="upper center")
+# leg.get_frame().set_edgecolor("lightgrey")
 
-# labels
-ax.set_ylabel("Relative citation diversity\n(% with 95% confidence interval)")
-# ticks = ["man\nman", "man\nwoman", "woman\nman", "woman\nwoman"]
-ticks = ["MM", "WM", "MW", "WW"]
-ax.set_xticklabels(ticks)
-ax.set_xlabel("Cited author gender (first and last)")
-plt.title(
-    "Relative proportions of gendered citations\nreported in papers "
-    + f"with diversity statements, \nup to January 2021 (n=%d)"
-    % n_papers_w_div_statement
-)
+# # labels
+# ax.set_ylabel("Relative citation diversity\n(% with 95% confidence interval)")
+# # ticks = ["man\nman", "man\nwoman", "woman\nman", "woman\nwoman"]
+# ticks = ["MM", "WM", "MW", "WW"]
+# ax.set_xticklabels(ticks)
+# ax.set_xlabel("Cited author gender (first and last)")
+# plt.title(
+#     "Relative proportions of gendered citations\nreported in papers "
+#     + f"with diversity statements, \nup to %d-%02d (n=%d)"
+#     % (year, month, n_papers_w_div_statement)
+# )
 
-# save
-plt.tight_layout()
-plt.savefig(
-    "../../reports/figures/relative_diversity__with_self_citation_swarm.png"
-)
+# # save
+# plt.tight_layout()
+# plt.savefig(
+#     "../../reports/figures/relative_diversity__with_self_citation_swarm.png"
+# )
 # -
 
 # # Calculate stats
@@ -452,5 +407,8 @@ for column, vals in df_with_ds.iteritems():
     df_stats.loc["95% CI lower bound", column] = lcb
     df_stats.loc["Min", column] = np.min(vals)
 
-df_stats.to_csv("../../reports/manual_data_stats.csv")
+df_stats.to_csv("../../reports/manual_data_stats__%d-%02d.csv" %(year, month))
 df_stats
+# -
+
+
