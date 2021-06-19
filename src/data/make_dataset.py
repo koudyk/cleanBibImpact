@@ -259,6 +259,11 @@ if __name__ == "__main__":
                 new_row["cited_doi"] = doi
                 new_papers = new_papers.append(new_row, ignore_index=True)
 
+    # If no new citations found, terminate
+    if len(new_papers) == 0:
+        print("\n--------------\nNo new citing paper founds :(\n")
+        quit()
+
     # for each citing doi, get the dois of the refs and their name/gender data
     print("\n--------------\nLooking in the referrences of the citing papers newly found.")
     citing_dois = new_papers.pivot(index="doi", columns="cited_entity", values="cited_entity")
