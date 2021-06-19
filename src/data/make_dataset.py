@@ -1,4 +1,5 @@
 import requests
+import sys
 import os
 import json
 from habanero import Crossref
@@ -7,6 +8,7 @@ import pandas as pd
 import gender_guesser.detector as gender_detecor
 
 
+# Relative paths from src/data
 GENDER_API_KEY_PATH = "gender_api_key.txt"
 NAME_DICT_PATH = "name_dict.json"
 DATAFILE_PATH = "../../data/citing_papers.csv"
@@ -216,6 +218,11 @@ def get_data(doi, df=None, api_key=None, name_dict={}):
 
 if __name__ == "__main__":
 
+    # Get path from working dir to src/data and join it to the relative paths
+    path_to_src_data = os.path.dirname(sys.argv[0])
+    for path_name in ["GENDER_API_KEY_PATH", "NAME_DICT_PATH", "DATAFILE_PATH"]:
+        globals()[path_name] = os.path.join(path_to_src_data, globals()[path_name])
+
     # look for the gender_api_key and name_dict
     if os.path.isfile(GENDER_API_KEY_PATH):
         api_key = open(GENDER_API_KEY_PATH, "r").read().strip()
@@ -230,8 +237,15 @@ if __name__ == "__main__":
         name_dict = {}
         print(f"{NAME_DICT_PATH} not found, a new one will be created.")
 
+    # look for the citing_paper.csv file
+    if os.path.isfile(DATAFILE_PATH):
+        old_papers = pd.read_csv(DATAFILE_PATH)
+    else:
+        old_papers = pd.DataFrame(columns=["doi"])
+        print(f"{DATAFILE_PATH} not found, it will be generated from scratch.")
+
     # for each cited doi, get the citing dois and their name/gender data
-    papers = pd.DataFrame(columns=["doi"])
+    new_papers = pd.DataFrame(columns=["doi", "cited_entity"])
     for cited_entity, doi in CITED_DOIS.items():
         print("\n--------------\nLooking for citations of the ", cited_entity)
         citing_dois = get_dois(doi, citing=True)
@@ -239,30 +253,32 @@ if __name__ == "__main__":
             print("    No citations found :( \n")
         for n, citing_doi in enumerate(citing_dois):
             print("\tDOI %d / %d\r" % (n + 1, len(citing_dois)), end="")
-            new_row = get_data(citing_doi, papers, api_key, name_dict)
-            new_row["cited_entity"] = cited_entity
-            new_row["cited_doi"] = doi
-            papers = papers.append(new_row, ignore_index=True)
+            if not citing_doi in list(old_papers["doi"].values):
+                new_row = get_data(citing_doi, new_papers, api_key, name_dict)
+                new_row["cited_entity"] = cited_entity
+                new_row["cited_doi"] = doi
+                new_papers = new_papers.append(new_row, ignore_index=True)
 
     # for each citing doi, get the dois of the refs and their name/gender data
-    print("\n--------------\nLooking in the referrences of the citing papers")
-    citing_dois = papers.pivot(index="doi", columns="cited_entity", values="cited_entity")
+    print("\n--------------\nLooking in the referrences of the citing papers newly found.")
+    citing_dois = new_papers.pivot(index="doi", columns="cited_entity", values="cited_entity")
+    all_papers = old_papers.append(new_papers)
     for n, citing_doi_row in enumerate(citing_dois.itertuples()):
         print("\tDOI %d / %d                    \r" % (n + 1, len(citing_dois)), end="")
         ref_dois = get_dois(citing_doi_row.Index, citing=False)
         for k, ref_doi in enumerate(ref_dois):
             print("\tDOI %d / %d, reference %d / %d    \r" % (n + 1, len(citing_dois), k+1, len(ref_dois)), end="")
             if ref_doi not in CITED_DOIS.values():
-                new_row = get_data(ref_doi, papers, api_key, name_dict)
+                new_row = get_data(ref_doi, all_papers, api_key, name_dict)
                 citing_entities = [entity for entity in CITED_DOIS.keys()
                                    if isinstance(getattr(citing_doi_row, entity, None), str)]
                 new_row["citing_entity"] = " ".join(["paper citing cleanBib"]+citing_entities)
                 new_row["citing_doi"] = citing_doi_row.Index
-                papers = papers.append(new_row, ignore_index=True)
+                all_papers = all_papers.append(new_row, ignore_index=True)
 
     # save the data as a .csv file
-    print(f"\nSaving data to {DATAFILE_PATH}\n")
-    papers.to_csv(DATAFILE_PATH)
+    print(f"\n\nSaving data to {DATAFILE_PATH}\n")
+    all_papers.to_csv(DATAFILE_PATH)
 
     # save the potentially updated name_dict
     with open(NAME_DICT_PATH, 'w') as name_dict_file:
